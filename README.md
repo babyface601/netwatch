@@ -1,6 +1,17 @@
 # 📡 NetWatch — Dashboard de Supervision Réseau
 
+![CI](https://github.com/babyface601/netwatch/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-2.3+-000000?logo=flask)
+![License](https://img.shields.io/badge/Licence-MIT-green)
+
 NetWatch est une application web de monitoring réseau en temps réel, construite avec **Python/Flask**. Elle scanne des hôtes (ping + ports TCP), affiche leur état dans un dashboard, conserve un historique et envoie des alertes lors de changements d'état.
+
+---
+
+## 📸 Aperçu
+
+![Dashboard NetWatch](docs/screenshot.png)
 
 ---
 
@@ -16,7 +27,7 @@ NetWatch est une application web de monitoring réseau en temps réel, construit
 
 ---
 
-## 🖥️ Aperçu
+## 🖥️ Interface
 
 ```
 ┌─────────────────────────────────────────┐

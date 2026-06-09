@@ -57,5 +57,14 @@
       80
     ],
     "type": "web"
+  },
+  {
+    "name": "zaho",
+    "host": "localhost",
+    "ports": [
+      80,
+      25
+    ],
+    "type": "web"
   }
 ]

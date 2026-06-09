@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NetWatch – Supervision Réseau</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+  header{background:#1e293b;border-bottom:1px solid #334155;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between}
+  .logo{display:flex;align-items:center;gap:.75rem}
+  .logo-icon{width:36px;height:36px;background:#3b82f6;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+  .logo h1{font-size:1.25rem;font-weight:700;color:#f1f5f9}
+  .logo span{font-size:.75rem;color:#64748b;display:block;font-weight:400}
+  .header-right{display:flex;align-items:center;gap:.6rem}
+  #last-update{font-size:.75rem;color:#64748b}
+  .btn{border:none;padding:.4rem .9rem;border-radius:6px;cursor:pointer;font-size:.8rem;font-weight:500}
+  #refresh-btn{background:#3b82f6;color:#fff}
+  #refresh-btn:hover{background:#2563eb}
+  #add-btn{background:#16a34a;color:#fff}
+  #add-btn:hover{background:#15803d}
+  .btn-logout{background:#334155;color:#94a3b8}
+  .btn-logout:hover{background:#475569;color:#e2e8f0}
+  .container{max-width:1100px;margin:0 auto;padding:1.5rem 2rem}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem}
+  .stat-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:1.1rem 1.25rem}
+  .stat-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:.35rem}
+  .stat-value{font-size:1.75rem;font-weight:700}
+  .c-green{color:#22c55e}.c-red{color:#ef4444}.c-blue{color:#3b82f6}.c-yellow{color:#eab308}
+  .hosts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem}
+  .host-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:1.1rem 1.25rem;transition:border-color .2s}
+  .host-card.up{border-left:3px solid #22c55e}
+  .host-card.down{border-left:3px solid #ef4444}
+  .host-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+  .host-name{font-weight:600;font-size:.95rem;color:#f1f5f9}
+  .host-addr{font-size:.7rem;color:#64748b;margin-top:2px}
+  .badge{padding:.2rem .55rem;border-radius:20px;font-size:.7rem;font-weight:700;text-transform:uppercase}
+  .badge-up{background:#052e16;color:#22c55e}
+  .badge-down{background:#450a0a;color:#ef4444}
+  .host-metrics{display:flex;gap:1rem;margin-bottom:.75rem}
+  .metric{flex:1;background:#0f172a;border-radius:6px;padding:.4rem .6rem}
+  .metric-label{font-size:.65rem;color:#64748b;margin-bottom:2px}
+  .metric-value{font-size:.85rem;font-weight:600;color:#e2e8f0}
+  .ports-row{display:flex;flex-wrap:wrap;gap:.35rem}
+  .port-tag{padding:.15rem .45rem;border-radius:4px;font-size:.65rem;font-family:monospace;font-weight:600}
+  .port-open{background:#052e16;color:#4ade80}
+  .port-closed{background:#450a0a;color:#f87171}
+  .host-footer{font-size:.65rem;color:#475569;margin-top:.6rem;display:flex;justify-content:space-between;align-items:center}
+  .delete-btn{background:none;border:none;color:#475569;cursor:pointer;font-size:.75rem;padding:.1rem .3rem;border-radius:4px;transition:color .15s}
+  .delete-btn:hover{color:#ef4444}
+  .type-badge{padding:.1rem .4rem;border-radius:4px;font-size:.62rem;font-weight:600;background:#1e3a5f;color:#60a5fa;margin-left:.4rem}
+  .loading{text-align:center;padding:3rem;color:#64748b;font-size:.9rem}
+  .pulse{animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .section-title{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:.75rem;font-weight:600}
+  .uptime-bar{height:4px;background:#1e293b;border-radius:2px;margin-top:.5rem;overflow:hidden}
+  .uptime-fill{height:100%;border-radius:2px;transition:width .5s ease}
+
+  /* Historique */
+  .history-section{margin-top:2rem}
+  .history-table{width:100%;border-collapse:collapse}
+  .history-table th{font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;text-align:left;padding:.5rem .75rem;border-bottom:1px solid #1e293b}
+  .history-table td{padding:.5rem .75rem;border-bottom:1px solid #1e293b;font-size:.8rem;vertical-align:middle}
+  .history-table tr:last-child td{border-bottom:none}
+  .dots-row{display:flex;gap:3px;flex-wrap:nowrap}
+  .dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+  .dot.up{background:#22c55e}
+  .dot.down{background:#ef4444}
+  .dot.unknown{background:#334155}
+  .uptime-pct{font-weight:700;font-size:.85rem}
+  .uptime-pct.good{color:#22c55e}
+  .uptime-pct.warn{color:#eab308}
+  .uptime-pct.bad{color:#ef4444}
+
+  /* Modal */
+  .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center}
+  .modal-backdrop.open{display:flex}
+  .modal{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:1.5rem;width:100%;max-width:420px}
+  .modal h2{font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:1.25rem}
+  .form-group{margin-bottom:.9rem}
+  .form-group label{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-bottom:.3rem}
+  .form-group input,.form-group select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#e2e8f0;padding:.45rem .65rem;font-size:.85rem;outline:none}
+  .form-group input:focus,.form-group select:focus{border-color:#3b82f6}
+  .form-hint{font-size:.65rem;color:#64748b;margin-top:.25rem}
+  .modal-actions{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1.25rem}
+  .btn-cancel{background:#334155;color:#e2e8f0}
+  .btn-cancel:hover{background:#475569}
+  .btn-save{background:#3b82f6;color:#fff}
+  .btn-save:hover{background:#2563eb}
+  #form-error{color:#f87171;font-size:.75rem;margin-top:.5rem;display:none}
+</style>
+</head>
+<body>
+
+<!-- Modal ajout hôte -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <h2>➕ Ajouter un hôte</h2>
+    <div class="form-group">
+      <label>Nom affiché</label>
+      <input type="text" id="f-name" placeholder="Mon serveur">
+    </div>
+    <div class="form-group">
+      <label>Adresse (IP ou domaine)</label>
+      <input type="text" id="f-host" placeholder="192.168.1.1 ou example.com">
+    </div>
+    <div class="form-group">
+      <label>Ports à scanner</label>
+      <input type="text" id="f-ports" placeholder="80, 443, 22">
+      <div class="form-hint">Sépare les ports par des virgules</div>
+    </div>
+    <div class="form-group">
+      <label>Type</label>
+      <select id="f-type">
+        <option value="web">WEB</option>
+        <option value="dns">DNS</option>
+        <option value="db">DB</option>
+      </select>
+    </div>
+    <div id="form-error"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeModal()">Annuler</button>
+      <button class="btn btn-save" onclick="submitAdd()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📡</div>
+    <div>
+      <h1>NetWatch</h1>
+      <span>Dashboard de Supervision Réseau</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="last-update">Chargement...</span>
+    <button class="btn" id="add-btn" onclick="openModal()">+ Ajouter</button>
+    <button class="btn" id="refresh-btn" onclick="loadStatus()">↻ Actualiser</button>
+    <a href="/logout"><button class="btn btn-logout">⏏ Déconnexion</button></a>
+  </div>
+</header>
+
+<div class="container">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total hôtes</div>
+      <div class="stat-value c-blue" id="stat-total">–</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">En ligne</div>
+      <div class="stat-value c-green" id="stat-up">–</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Hors ligne</div>
+      <div class="stat-value c-red" id="stat-down">–</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Disponibilité</div>
+      <div class="stat-value c-yellow" id="stat-pct">–</div>
+      <div class="uptime-bar"><div class="uptime-fill" id="uptime-bar" style="background:#eab308;width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="section-title">État des hôtes surveillés</div>
+  <div class="hosts-grid" id="hosts-grid">
+    <div class="loading pulse">Analyse du réseau en cours...</div>
+  </div>
+
+  <!-- Historique -->
+  <div class="history-section">
+    <div class="section-title" style="margin-top:1.5rem">Historique des scans</div>
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:10px;overflow:hidden">
+      <table class="history-table" id="history-table">
+        <thead>
+          <tr>
+            <th>Hôte</th>
+            <th>Disponibilité</th>
+            <th>20 derniers scans</th>
+          </tr>
+        </thead>
+        <tbody id="history-body">
+          <tr><td colspan="3" style="text-align:center;color:#64748b;padding:1.5rem">En attente du premier scan...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function esc(s){const d=document.createElement('div');d.textContent=String(s);return d.innerHTML;}
+
+function renderHost(h){
+  const ports=Object.entries(h.ports).map(([p,o])=>
+    `<span class="port-tag ${o?'port-open':'port-closed'}">${o?'●':'○'} :${esc(p)}</span>`
+  ).join('');
+  const typeLabels={dns:'DNS',web:'WEB',db:'DB'};
+  const ss=h.status==='up'?'up':'down';
+  return `<div class="host-card ${ss}">
+    <div class="host-header">
+      <div>
+        <div class="host-name">${esc(h.name)}<span class="type-badge">${esc(typeLabels[h.type]||h.type)}</span></div>
+        <div class="host-addr">${esc(h.host)}</div>
+      </div>
+      <span class="badge badge-${ss}">${ss==='up'?'EN LIGNE':'HORS LIGNE'}</span>
+    </div>
+    <div class="host-metrics">
+      <div class="metric"><div class="metric-label">Latence</div><div class="metric-value">${h.latency?h.latency+'ms':'N/A'}</div></div>
+      <div class="metric"><div class="metric-label">Ping</div><div class="metric-value">${h.reachable?'✓ OK':'✗ KO'}</div></div>
+    </div>
+    <div class="ports-row">${ports}</div>
+    <div class="host-footer">
+      <span>Vérifié à ${esc(h.checked_at)}</span>
+      <button class="delete-btn" onclick="deleteHost(${JSON.stringify(esc(h.name))})">🗑 Supprimer</button>
+    </div>
+  </div>`;
+}
+
+/* ── Scan ── */
+let isLoading=false;
+async function loadStatus(){
+  if(isLoading) return;
+  isLoading=true;
+  document.getElementById('refresh-btn').textContent='⏳ Scan...';
+  try{
+    const r=await fetch('/api/status');
+    const d=await r.json();
+    document.getElementById('stat-total').textContent=d.summary.total;
+    document.getElementById('stat-up').textContent=d.summary.up;
+    document.getElementById('stat-down').textContent=d.summary.down;
+    const pct=Math.round(d.summary.up/d.summary.total*100);
+    document.getElementById('stat-pct').textContent=pct+'%';
+    document.getElementById('uptime-bar').style.width=pct+'%';
+    document.getElementById('hosts-grid').innerHTML=d.hosts.map(renderHost).join('');
+    document.getElementById('last-update').textContent='Mis à jour : '+d.summary.checked_at;
+    loadHistory();
+  }catch(e){
+    document.getElementById('hosts-grid').innerHTML='<div class="loading">Erreur de connexion à l\'API</div>';
+  }finally{
+    isLoading=false;
+    document.getElementById('refresh-btn').textContent='↻ Actualiser';
+  }
+}
+
+/* ── Historique ── */
+async function loadHistory(){
+  try{
+    const r=await fetch('/api/history?limit=20');
+    const data=await r.json();
+    const tbody=document.getElementById('history-body');
+    const entries=Object.entries(data);
+    if(!entries.length){
+      tbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:#64748b;padding:1.5rem">Aucun historique disponible.</td></tr>';
+      return;
+    }
+    tbody.innerHTML=entries.map(([name,info])=>{
+      const pct=info.uptime_pct;
+      const cls=pct>=90?'good':pct>=70?'warn':'bad';
+      const dots=info.scans.slice().reverse().map(s=>
+        `<div class="dot ${s.status}" title="${s.checked_at} — ${s.status} ${s.latency?'('+s.latency+'ms)':''}"></div>`
+      ).join('');
+      return `<tr>
+        <td style="font-weight:600;color:#f1f5f9">${esc(name)}</td>
+        <td><span class="uptime-pct ${cls}">${pct}%</span></td>
+        <td><div class="dots-row">${dots}</div></td>
+      </tr>`;
+    }).join('');
+  }catch(e){
+    console.error('Erreur historique:', e);
+  }
+}
+
+/* ── Suppression ── */
+async function deleteHost(name){
+  if(!confirm('Supprimer "'+name+'" ?')) return;
+  const r=await fetch('/api/targets/'+encodeURIComponent(name),{method:'DELETE'});
+  if(r.ok){loadStatus();}
+  else{alert('Erreur lors de la suppression');}
+}
+
+/* ── Modal ── */
+function openModal(){
+  document.getElementById('f-name').value='';
+  document.getElementById('f-host').value='';
+  document.getElementById('f-ports').value='';
+  document.getElementById('f-type').value='web';
+  document.getElementById('form-error').style.display='none';
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('f-name').focus();
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+async function submitAdd(){
+  const name=document.getElementById('f-name').value.trim();
+  const host=document.getElementById('f-host').value.trim();
+  const portsStr=document.getElementById('f-ports').value;
+  const type=document.getElementById('f-type').value;
+  const errEl=document.getElementById('form-error');
+  if(!name||!host){errEl.textContent='Le nom et l\'adresse sont obligatoires.';errEl.style.display='block';return;}
+  const ports=portsStr.split(',').map(p=>parseInt(p.trim(),10)).filter(p=>!isNaN(p)&&p>0&&p<=65535);
+  if(!ports.length){errEl.textContent='Entre au moins un port valide (ex : 80).';errEl.style.display='block';return;}
+  const r=await fetch('/api/targets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,host,ports,type})});
+  const data=await r.json();
+  if(!r.ok){errEl.textContent=data.error||'Erreur serveur';errEl.style.display='block';return;}
+  closeModal();
+  loadStatus();
+}
+
+loadStatus();
+setInterval(loadStatus,30000);
+</script>
+</body>
+</html>

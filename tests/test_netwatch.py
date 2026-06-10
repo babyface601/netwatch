@@ -6,6 +6,7 @@ import sys
 import os
 import json
 import pytest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -81,19 +82,20 @@ def test_api_status_requiert_auth(client):
 
 def test_api_status_retourne_json(logged_in_client):
     """L'API /api/status doit retourner un JSON avec 'hosts' et 'summary'."""
-    # Forcer une cible minimale pour éviter max_workers=0
-    original = app_module.TARGETS[:]
-    app_module.TARGETS = [{"name": "Local", "host": "127.0.0.1", "ports": [], "type": "web"}]
-    try:
+    fake_target = [{"name": "Local", "host": "127.0.0.1", "ports": [], "type": "web"}]
+    fake_result = {"name": "Local", "host": "127.0.0.1", "status": "up",
+                   "reachable": True, "latency": 1.0, "ports": {},
+                   "type": "web", "checked_at": "00:00:00"}
+    with patch.object(app_module, 'TARGETS', fake_target), \
+         patch.object(app_module, 'check_target', return_value=fake_result), \
+         patch.object(app_module, 'save_scan_results'), \
+         patch.object(app_module, 'check_and_alert'):
         resp = logged_in_client.get("/api/status")
-        assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert isinstance(data, dict)
-        assert "hosts" in data
-        assert "summary" in data
-        assert "total" in data["summary"]
-    finally:
-        app_module.TARGETS = original
+    assert resp.status_code == 200
+    data = json.loads(resp.data)
+    assert "hosts" in data
+    assert "summary" in data
+    assert data["summary"]["total"] == 1
 
 
 def test_api_targets_get(logged_in_client):
